@@ -56,7 +56,7 @@ export default function PresentationPage() {
 
   // --- overlays ---
   const [showAnswer, setShowAnswer] = useState(false);
-  const [showCounter, setShowCounter] = useState(false);
+  const [showCounter, setShowCounter] = useState(true);
   const [showGameList, setShowGameList] = useState(false);
 
   // --- auto-advance ---
@@ -94,6 +94,41 @@ export default function PresentationPage() {
 
   // --- exit confirmation ---
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  // --- touch device detection ---
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  useEffect(() => {
+    setIsTouchDevice(navigator.maxTouchPoints > 0);
+  }, []);
+
+  // --- nav button visibility (auto-hide after 3s of no activity) ---
+  const [navVisible, setNavVisible] = useState(true);
+  const navHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showNav = useCallback(() => {
+    setNavVisible(true);
+    if (navHideTimer.current) clearTimeout(navHideTimer.current);
+    navHideTimer.current = setTimeout(() => setNavVisible(false), 3000);
+  }, []);
+
+  // Start the hide timer on mount
+  useEffect(() => {
+    if (!hasStarted) return;
+    // On touch devices, always show nav
+    if (isTouchDevice) {
+      setNavVisible(true);
+      return;
+    }
+    showNav();
+  }, [hasStarted, isTouchDevice, showNav]);
+
+  // Mouse move handler to reveal nav
+  useEffect(() => {
+    if (!hasStarted || isTouchDevice) return;
+    const handleMouseMove = () => showNav();
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [hasStarted, isTouchDevice, showNav]);
 
   // =========================================================================
   // Toast helper
@@ -520,6 +555,18 @@ export default function PresentationPage() {
   }, [requestFullscreen]);
 
   // =========================================================================
+  // Toggle answer (shared by keyboard R, double-tap, and reveal button)
+  // =========================================================================
+
+  const toggleAnswer = useCallback(() => {
+    setShowAnswer((prev) => {
+      const next = !prev;
+      syncDisplayState(gameIndex, photoIndex, next);
+      return next;
+    });
+  }, [gameIndex, photoIndex, syncDisplayState]);
+
+  // =========================================================================
   // Keyboard
   // =========================================================================
 
@@ -550,11 +597,7 @@ export default function PresentationPage() {
           break;
         case "r":
         case "R":
-          setShowAnswer((prev) => {
-            const next = !prev;
-            syncDisplayState(gameIndex, photoIndex, next);
-            return next;
-          });
+          toggleAnswer();
           break;
         case "c":
         case "C":
@@ -595,11 +638,9 @@ export default function PresentationPage() {
     goNext,
     goPrev,
     toggleFullscreen,
+    toggleAnswer,
     showExitConfirm,
     showGameList,
-    gameIndex,
-    photoIndex,
-    syncDisplayState,
     exitFullscreen,
     router,
     flash,
@@ -614,10 +655,15 @@ export default function PresentationPage() {
     touchStartY.current = e.touches[0].clientY;
   }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    // Prevent Safari bounce
-    e.preventDefault();
-  }, []);
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      // Don't preventDefault when overlays are showing — let buttons receive taps
+      if (showExitConfirm || showGameList) return;
+      // Prevent Safari bounce
+      e.preventDefault();
+    },
+    [showExitConfirm, showGameList]
+  );
 
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
@@ -650,11 +696,7 @@ export default function PresentationPage() {
           clearTimeout(singleTapTimer.current);
           singleTapTimer.current = null;
         }
-        setShowAnswer((prev) => {
-          const next = !prev;
-          syncDisplayState(gameIndex, photoIndex, next);
-          return next;
-        });
+        toggleAnswer();
         return;
       }
 
@@ -669,7 +711,7 @@ export default function PresentationPage() {
         }
       }, 300);
     },
-    [goNext, goPrev, showExitConfirm, showGameList, hasStarted, gameIndex, photoIndex, syncDisplayState]
+    [goNext, goPrev, toggleAnswer, showExitConfirm, showGameList, hasStarted]
   );
 
   // =========================================================================
@@ -745,7 +787,7 @@ export default function PresentationPage() {
     <div
       ref={containerRef}
       className="fixed inset-0 z-[9999] bg-black select-none overflow-hidden"
-      style={{ touchAction: "none" }}
+      style={{ touchAction: "manipulation" }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -800,6 +842,38 @@ export default function PresentationPage() {
         </>
       )}
 
+      {/* ---- On-screen nav buttons ---- */}
+      {!showTitleCard && !showEndCard && !showExitConfirm && !showGameList && !showAnswer && (
+        <>
+          {/* Previous */}
+          <button
+            onClick={(e) => { e.stopPropagation(); goPrev(); }}
+            onTouchEnd={(e) => { e.stopPropagation(); goPrev(); }}
+            className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-12 h-20 rounded-full bg-white/10 text-white/70 hover:bg-white/25 active:bg-white/35 cursor-pointer transition-all duration-300 ${
+              navVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
+            aria-label="Previous photo"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          {/* Next */}
+          <button
+            onClick={(e) => { e.stopPropagation(); goNext(); }}
+            onTouchEnd={(e) => { e.stopPropagation(); goNext(); }}
+            className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-12 h-20 rounded-full bg-white/10 text-white/70 hover:bg-white/25 active:bg-white/35 cursor-pointer transition-all duration-300 ${
+              navVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
+            aria-label="Next photo"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
+      )}
+
       {/* ---- Game title card ---- */}
       {showTitleCard && (
         <div className="absolute inset-0 flex items-center justify-center z-20">
@@ -842,6 +916,22 @@ export default function PresentationPage() {
         </div>
       )}
 
+      {/* ---- Touch reveal button (touch devices only) ---- */}
+      {isTouchDevice && answerText && !showTitleCard && !showEndCard && !showExitConfirm && !showGameList && (
+        <div className={`absolute left-1/2 -translate-x-1/2 z-25 ${timerSeconds > 0 && !showAnswer ? "bottom-16" : "bottom-6"}`}>
+          <button
+            onClick={toggleAnswer}
+            onTouchEnd={(e) => {
+              e.stopPropagation();
+              toggleAnswer();
+            }}
+            className="rounded-full bg-white/15 backdrop-blur-sm px-6 py-3 text-white text-sm font-medium cursor-pointer hover:bg-white/25 active:bg-white/35 transition-colors"
+          >
+            {showAnswer ? "Tap to Hide" : "Tap to Reveal"}
+          </button>
+        </div>
+      )}
+
       {/* ---- Slide counter ---- */}
       {showCounter && !showTitleCard && !showEndCard && (
         <div className="absolute bottom-4 right-4 z-20 text-right transition-opacity duration-200">
@@ -867,10 +957,14 @@ export default function PresentationPage() {
                 <button
                   key={slide.game.id}
                   onClick={() => jumpToGame(idx)}
-                  className={`text-left rounded-lg px-4 py-3 transition-colors ${
+                  onTouchEnd={(e) => {
+                    e.stopPropagation();
+                    jumpToGame(idx);
+                  }}
+                  className={`text-left rounded-lg px-4 py-3 min-h-[48px] cursor-pointer transition-colors ${
                     idx === gameIndex
                       ? "bg-blue-600 text-white"
-                      : "bg-white/10 text-white/80 hover:bg-white/20"
+                      : "bg-white/10 text-white/80 hover:bg-white/20 active:bg-white/30"
                   }`}
                 >
                   <div className="font-medium">{slide.game.name}</div>
@@ -882,7 +976,7 @@ export default function PresentationPage() {
               ))}
             </div>
             <p className="text-white/30 text-xs mt-4 text-center">
-              Press G to close
+              Tap a game or press G to close
             </p>
           </div>
         </div>
@@ -896,15 +990,18 @@ export default function PresentationPage() {
               Exit presentation?
             </h2>
             <p className="text-white/60 mb-6">
-              Press <span className="font-mono">Y</span> or{" "}
-              <span className="font-mono">Enter</span> to exit,{" "}
-              <span className="font-mono">Escape</span> or{" "}
-              <span className="font-mono">N</span> to stay
+              Tap a button or press{" "}
+              <span className="font-mono">Y</span> to exit,{" "}
+              <span className="font-mono">Escape</span> to stay
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => setShowExitConfirm(false)}
-                className="rounded-lg bg-white/10 px-6 py-2 text-white hover:bg-white/20 transition-colors"
+                onTouchEnd={(e) => {
+                  e.stopPropagation();
+                  setShowExitConfirm(false);
+                }}
+                className="rounded-lg bg-white/10 px-8 min-h-[48px] text-white text-lg cursor-pointer hover:bg-white/20 active:bg-white/30 transition-colors"
               >
                 Stay
               </button>
@@ -913,7 +1010,12 @@ export default function PresentationPage() {
                   exitFullscreen();
                   router.back();
                 }}
-                className="rounded-lg bg-red-600 px-6 py-2 text-white hover:bg-red-700 transition-colors"
+                onTouchEnd={(e) => {
+                  e.stopPropagation();
+                  exitFullscreen();
+                  router.back();
+                }}
+                className="rounded-lg bg-red-600 px-8 min-h-[48px] text-white text-lg cursor-pointer hover:bg-red-700 active:bg-red-800 transition-colors"
               >
                 Exit
               </button>
