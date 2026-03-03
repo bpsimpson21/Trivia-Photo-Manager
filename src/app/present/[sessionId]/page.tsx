@@ -85,6 +85,8 @@ export default function PresentationPage() {
   // --- touch ---
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
+  const lastTapTime = useRef(0);
+  const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- display state ---
   const displayStateId = useRef<string | null>(null);
@@ -628,20 +630,46 @@ export default function PresentationPage() {
 
       // Swipe detection (threshold 50px, must be more horizontal than vertical)
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+        if (singleTapTimer.current) {
+          clearTimeout(singleTapTimer.current);
+          singleTapTimer.current = null;
+        }
         if (dx < 0) goNext();
         else goPrev();
         return;
       }
 
-      // Tap detection — right 2/3 = next, left 1/3 = prev
-      const width = window.innerWidth;
-      if (endX > width / 3) {
-        goNext();
-      } else {
-        goPrev();
+      // Double-tap detection: toggle answer reveal
+      const now = Date.now();
+      const timeSinceLast = now - lastTapTime.current;
+      lastTapTime.current = now;
+
+      if (timeSinceLast < 300) {
+        // Double-tap detected — cancel pending single-tap and toggle answer
+        if (singleTapTimer.current) {
+          clearTimeout(singleTapTimer.current);
+          singleTapTimer.current = null;
+        }
+        setShowAnswer((prev) => {
+          const next = !prev;
+          syncDisplayState(gameIndex, photoIndex, next);
+          return next;
+        });
+        return;
       }
+
+      // Delay single-tap to distinguish from double-tap
+      singleTapTimer.current = setTimeout(() => {
+        singleTapTimer.current = null;
+        const width = window.innerWidth;
+        if (endX > width / 3) {
+          goNext();
+        } else {
+          goPrev();
+        }
+      }, 300);
     },
-    [goNext, goPrev, showExitConfirm, showGameList, hasStarted]
+    [goNext, goPrev, showExitConfirm, showGameList, hasStarted, gameIndex, photoIndex, syncDisplayState]
   );
 
   // =========================================================================
