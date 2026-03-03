@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
 import type { Game, Photo } from "@/lib/types";
 
@@ -39,7 +39,6 @@ function preloadImages(urls: string[]) {
 export default function PresentationPage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
-  const router = useRouter();
   const supabase = useMemo(() => createBrowserClient(), []);
 
   // --- data ---
@@ -757,7 +756,7 @@ export default function PresentationPage() {
       <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black gap-4">
         <div className="text-white text-lg">{error}</div>
         <button
-          onClick={() => router.back()}
+          onClick={() => { window.location.href = `/session/${sessionId}`; }}
           className="rounded-lg bg-blue-600 px-6 py-2 text-white hover:bg-blue-700"
         >
           Go Back
@@ -812,6 +811,22 @@ export default function PresentationPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* ---- Close button (top-right, auto-hides with nav) ---- */}
+      {!showExitConfirm && !showGameList && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setShowExitConfirm(true); }}
+          onTouchEnd={(e) => { e.stopPropagation(); setShowExitConfirm(true); }}
+          className={`absolute top-3 right-3 z-30 flex items-center justify-center w-10 h-10 rounded-full bg-white/20 text-white/80 hover:bg-white/40 active:bg-white/50 cursor-pointer transition-all duration-300 ${
+            navVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
+          aria-label="Close presentation"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       )}
 
       {/* ---- Photo display with stack-and-swap crossfade ---- */}
@@ -889,16 +904,49 @@ export default function PresentationPage() {
 
       {/* ---- End of session card ---- */}
       {showEndCard && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-20 gap-4">
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-20 gap-6">
           <h1
             className="text-white font-bold text-center px-8"
             style={{ fontSize: "clamp(2rem, 6vw, 5rem)" }}
           >
             End of Session
           </h1>
-          <p className="text-white/50 text-lg">
-            Press Escape to exit
-          </p>
+          <div className="flex gap-4">
+            <button
+              onClick={() => {
+                exitFullscreen();
+                window.location.href = `/session/${sessionId}`;
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                exitFullscreen();
+                window.location.href = `/session/${sessionId}`;
+              }}
+              className="rounded-lg bg-white px-8 py-3 min-h-[48px] text-black text-lg font-semibold cursor-pointer hover:bg-white/90 active:bg-white/80 transition-colors"
+            >
+              Back to Session
+            </button>
+            <button
+              onClick={() => {
+                setShowEndCard(false);
+                setShowAnswer(false);
+                setGameIndex(0);
+                setPhotoIndex(0);
+                syncDisplayState(0, 0, false);
+              }}
+              onTouchEnd={(e) => {
+                e.stopPropagation();
+                setShowEndCard(false);
+                setShowAnswer(false);
+                setGameIndex(0);
+                setPhotoIndex(0);
+                syncDisplayState(0, 0, false);
+              }}
+              className="rounded-lg bg-white/20 px-8 py-3 min-h-[48px] text-white text-lg cursor-pointer hover:bg-white/30 active:bg-white/40 transition-colors"
+            >
+              Restart
+            </button>
+          </div>
         </div>
       )}
 
