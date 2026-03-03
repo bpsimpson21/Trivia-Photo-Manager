@@ -94,6 +94,8 @@ export default function PresentationPage() {
 
   // --- exit confirmation ---
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const showExitConfirmRef = useRef(false);
+  showExitConfirmRef.current = showExitConfirm;
 
   // --- touch device detection ---
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -575,12 +577,12 @@ export default function PresentationPage() {
 
     function handleKey(e: KeyboardEvent) {
       // If exit confirm is showing, handle only Escape and Enter
-      if (showExitConfirm) {
+      if (showExitConfirmRef.current) {
         if (e.key === "Escape" || e.key === "n" || e.key === "N") {
           setShowExitConfirm(false);
         } else if (e.key === "Enter" || e.key === "y" || e.key === "Y") {
           exitFullscreen();
-          router.back();
+          window.location.href = `/session/${sessionId}`;
         }
         return;
       }
@@ -639,10 +641,9 @@ export default function PresentationPage() {
     goPrev,
     toggleFullscreen,
     toggleAnswer,
-    showExitConfirm,
     showGameList,
     exitFullscreen,
-    router,
+    sessionId,
     flash,
   ]);
 
@@ -1008,12 +1009,12 @@ export default function PresentationPage() {
               <button
                 onClick={() => {
                   exitFullscreen();
-                  router.back();
+                  window.location.href = `/session/${sessionId}`;
                 }}
                 onTouchEnd={(e) => {
                   e.stopPropagation();
                   exitFullscreen();
-                  router.back();
+                  window.location.href = `/session/${sessionId}`;
                 }}
                 className="rounded-lg bg-red-600 px-8 min-h-[48px] text-white text-lg cursor-pointer hover:bg-red-700 active:bg-red-800 transition-colors"
               >
