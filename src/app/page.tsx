@@ -122,7 +122,7 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* How It Works */}
+      {/* Getting Started */}
       {!tutorialDismissed && (
         <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 overflow-hidden">
           <button
@@ -130,7 +130,7 @@ export default function Dashboard() {
             className="w-full flex items-center justify-between px-5 py-3 text-left focus:outline-none focus:ring-2 focus:ring-primary rounded-xl"
           >
             <span className="text-sm font-semibold text-blue-900">
-              How It Works
+              Getting Started
             </span>
             <svg
               className={`w-4 h-4 text-blue-600 transition-transform duration-200 ${
@@ -151,34 +151,49 @@ export default function Dashboard() {
 
           {showTutorial && (
             <div className="px-5 pb-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 {[
                   {
+                    step: 1,
                     icon: "\ud83d\udcc5",
                     title: "Create a Session",
                     desc: "Start a new trivia night. Each session holds all your games/rounds for one event.",
                   },
                   {
+                    step: 2,
                     icon: "\ud83d\uddbc\ufe0f",
                     title: "Add Games & Photos",
                     desc: "Add rounds, then upload photos via drag-and-drop or import a Google Drive folder. Set the answer for each photo.",
                   },
                   {
+                    step: 3,
                     icon: "\ud83d\udcfa",
                     title: "Present on TV",
-                    desc: "Open \u2018Present Session\u2019 on your TV/iPad. Photos display full-screen with smooth transitions. Press R to reveal answers.",
+                    desc: "Open \u2018Present Session\u2019 on your TV or iPad. Full-screen slideshow with smooth crossfade transitions.",
                   },
                   {
+                    step: 4,
                     icon: "\ud83d\udcf1",
                     title: "Control from Phone",
-                    desc: "Open \u2018Remote Control\u2019 on your phone. Tap Next/Prev, reveal answers, switch games \u2014 all synced in real-time.",
+                    desc: "Open \u2018Remote Control\u2019 on your phone. Navigate slides, reveal answers, and switch games in real-time.",
+                  },
+                  {
+                    step: 5,
+                    icon: "\ud83d\udcf2",
+                    title: "Install as App",
+                    desc: "On your phone or iPad, tap Share \u2192 \u2018Add to Home Screen\u2019 for a full-screen app experience with no browser UI.",
                   },
                 ].map((step) => (
                   <div
                     key={step.title}
                     className="rounded-lg bg-white p-4 shadow-sm"
                   >
-                    <div className="text-2xl mb-2">{step.icon}</div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">
+                        {step.step}
+                      </span>
+                      <span className="text-xl">{step.icon}</span>
+                    </div>
                     <h4 className="text-sm font-semibold text-gray-900 mb-1">
                       {step.title}
                     </h4>
@@ -191,10 +206,10 @@ export default function Dashboard() {
 
               <div className="mt-3 flex items-center justify-between">
                 <p className="text-xs text-blue-700">
-                  <span className="font-medium">Keyboard shortcuts:</span>{" "}
+                  <span className="font-medium">Presentation shortcuts:</span>{" "}
                   <span className="text-blue-600">
-                    &larr; &rarr; navigate, R reveal answer, T timer, G game
-                    list, C counter, F fullscreen
+                    &larr; &rarr; navigate, R reveal, T timer, G game list, C
+                    counter, F fullscreen
                   </span>
                 </p>
                 <button
