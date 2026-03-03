@@ -1,65 +1,185 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { createBrowserClient } from "@/lib/supabase";
+import { Session } from "@/lib/types";
+import { GridSkeleton } from "@/components/LoadingSkeleton";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/components/Toast";
+
+export default function Dashboard() {
+  const [sessions, setSessions] = useState<(Session & { game_count: number })[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const router = useRouter();
+  const supabase = useMemo(() => createBrowserClient(), []);
+  const { showToast } = useToast();
+  const toastRef = useRef(showToast);
+  toastRef.current = showToast;
+
+  const fetchSessions = useCallback(async () => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("*, games(count)")
+        .order("date", { ascending: false });
+
+      if (error) {
+        console.error("Supabase fetchSessions error:", error.message, error.code, error.details);
+        throw error;
+      }
+
+      const mapped = (data || []).map((s) => ({
+        ...s,
+        game_count: (s.games as unknown as { count: number }[])?.[0]?.count ?? 0,
+      }));
+      setSessions(mapped);
+    } catch (err) {
+      console.error("Failed to fetch sessions:", err);
+      toastRef.current("Failed to load sessions", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
+  const createSession = async () => {
+    setCreating(true);
+    try {
+      const today = new Date();
+      const formatted = today.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      const name = `Trivia Night — ${formatted}`;
+
+      const { data, error } = await supabase
+        .from("sessions")
+        .insert({ name, date: today.toISOString().split("T")[0] })
+        .select()
+        .single();
+
+      if (error) throw error;
+      router.push(`/session/${data.id}`);
+    } catch (err) {
+      console.error("Failed to create session:", err);
+      showToast("Failed to create session", "error");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const deleteSession = async () => {
+    if (!deleteTarget) return;
+    try {
+      const { error } = await supabase
+        .from("sessions")
+        .delete()
+        .eq("id", deleteTarget);
+
+      if (error) throw error;
+      setSessions((prev) => prev.filter((s) => s.id !== deleteTarget));
+      showToast("Session deleted");
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+      showToast("Failed to delete session", "error");
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Your Sessions</h1>
+        </div>
+        <GridSkeleton count={3} />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Your Sessions</h1>
+        <button
+          onClick={createSession}
+          disabled={creating}
+          className="rounded-lg bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover transition-colors disabled:opacity-50"
+        >
+          {creating ? "Creating..." : "New Session"}
+        </button>
+      </div>
+
+      {sessions.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="text-gray-400 text-5xl mb-4">📋</div>
+          <h2 className="text-lg font-semibold text-gray-700 mb-2">No sessions yet</h2>
+          <p className="text-gray-500 mb-6">
+            Create your first trivia night to get started.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={createSession}
+            disabled={creating}
+            className="rounded-lg bg-primary px-6 py-2.5 font-medium text-white hover:bg-primary-hover transition-colors disabled:opacity-50"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {creating ? "Creating..." : "Create Session"}
+          </button>
         </div>
-      </main>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {sessions.map((session) => (
+            <div
+              key={session.id}
+              className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <h3 className="font-semibold text-gray-900 truncate">{session.name}</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {new Date(session.date + "T00:00:00").toLocaleDateString("en-US", {
+                  weekday: "short",
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </p>
+              <p className="mt-2 text-sm text-gray-600">
+                {session.game_count} {session.game_count === 1 ? "game" : "games"}
+              </p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => router.push(`/session/${session.id}`)}
+                  className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover transition-colors"
+                >
+                  Open
+                </button>
+                <button
+                  onClick={() => setDeleteTarget(session.id)}
+                  className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-destructive hover:bg-red-50 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete Session"
+        message="Are you sure you want to delete this session? All games and photos within it will be permanently deleted."
+        onConfirm={deleteSession}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
